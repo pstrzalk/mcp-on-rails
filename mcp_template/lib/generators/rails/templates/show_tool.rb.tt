@@ -1,0 +1,25 @@
+<% module_namespacing do -%>
+module <%= class_name.pluralize %>
+  class ShowTool < MCP::Tool
+    tool_name "<%= singular_table_name %>-show-tool"
+    description "Show all information about <%= class_name %> of the given ID"
+
+    input_schema(
+      properties: {
+        id: { type: "integer" }
+      },
+      required: [ "id" ]
+    )
+
+    def self.call(id:, server_context:)
+      <%= singular_table_name %> = <%= class_name %>.find(id)
+
+      MCP::Tool::Response.new([ { type: "text", text: <%= singular_table_name %>.to_mcp_response } ])
+    rescue ActiveRecord::RecordNotFound
+      MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> of id = #{id} was not found" } ])
+    rescue StandardError => e
+      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+    end
+  end
+end
+<% end -%>

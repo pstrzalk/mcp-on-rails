@@ -1,0 +1,32 @@
+<% module_namespacing do -%>
+module <%= class_name.pluralize %>
+  class CreateTool < MCP::Tool
+    tool_name "<%= singular_table_name %>-create-tool"
+    description "Create a new <%= class_name %> entity"
+<% if attributes.any?
+    relation_attributes = attributes.select { %i[references belongs_to].include?(_1.type) }
+%>
+    input_schema(
+      properties: {<%
+        attributes.each do |attribute| %>
+        <%= attribute.column_name %>: { type: "<%= map_attribute_type(attribute.type) %>" },<% end %>
+      },
+      required: [ <%= relation_attributes.map { "\"#{_1.column_name}\"" }.join(", ") %> ]
+    )
+<% end %>
+    def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %><% end %>, server_context:)
+      <%= singular_table_name %> = <%= class_name %>.new<% if attributes.any? %>(
+        <%= attributes.map { "#{_1.column_name}: #{_1.column_name}" }.join(",\n") %>
+      )
+<% end %>
+      if <%= singular_table_name %>.save
+        MCP::Tool::Response.new([ { type: "text", text: "Created #{<%= singular_table_name %>.to_mcp_response}" } ])
+      else
+        MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> was not created due to the following errors: #{<%= singular_table_name %>.errors.full_messages.join(', ')}" } ])
+      end
+    rescue StandardError => e
+      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+    end
+  end
+end
+<% end -%>

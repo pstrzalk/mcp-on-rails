@@ -1,0 +1,58 @@
+# Rails application template to install ruby-mcp gem and run its installer
+run "bundle add mcp"
+
+require 'fileutils'
+source_dir = File.expand_path('mcp_template', __dir__)
+destination_dir = Dir.pwd
+FileUtils.cp_r("#{source_dir}/.", destination_dir)
+
+create_file "app/controllers/mcp_controller.rb", <<~RUBY
+# frozen_string_literal: true
+
+class McpController < ActionController::API
+  def handle
+    if params[:method] == "notifications/initialized"
+      head :accepted
+    else
+      render(json: mcp_server.handle_json(request.body.read))
+    end
+  end
+
+  private
+
+  def mcp_server
+    MCP::Server.new(
+      name: "rails_mcp_server",
+      version: "1.0.0",
+      tools: MCP::Tool.descendants
+    )
+  end
+end
+RUBY
+
+mcp_routes = <<~RUBY
+  # Model Context Protocol
+  post "/mcp", to: "mcp#handle"
+  get  "/mcp", to: "mcp#handle"
+RUBY
+inject_into_file "config/routes.rb", mcp_routes, after: "Rails.application.routes.draw do\n"
+
+
+# Add to_mcp_response method to ApplicationRecord
+application_record = <<RUBY
+
+  def to_mcp_response
+    result = [ self.class.name ]
+    result += attributes.map do |key, value|
+      "  **\#\{key}**: \#\{value}"
+    end
+
+    result.join("\\n")
+  end
+RUBY
+inject_into_file "app/models/application_record.rb", application_record, after: "primary_abstract_class\n"
+
+# Do not autoload generators
+gsub_file "config/application.rb",
+  'config.autoload_lib(ignore: %w[assets tasks])',
+  'config.autoload_lib(ignore: %w[assets tasks generators])'

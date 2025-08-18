@@ -1,0 +1,34 @@
+<% module_namespacing do -%>
+module <%= class_name.pluralize %>
+  class UpdateTool < MCP::Tool
+    tool_name "<%= singular_table_name %>-update-tool"
+    description "Update a <%= class_name %> entity of a given ID"
+
+    input_schema(
+      properties: {
+        id: { type: "integer" },<%
+        attributes.each do |attribute| %>
+        <%= attribute.column_name %>: { type: "<%= map_attribute_type(attribute.type) %>" },<% end %>
+      },
+      required: [ "id" ]
+    )
+<% update_attributes = ["id:"] + attributes.map { "#{_1.column_name}: MCP::EmptyProperty" } + ["server_context:"] %>
+    def self.call(<%= update_attributes.join(", ") %>)
+      <%= singular_table_name %> = <%= class_name %>.find(id)
+<% attributes.each do |attribute| %>
+      <%= singular_table_name %>.<%= attribute.column_name %> = <%= attribute.column_name %> unless <%= attribute.column_name %> == MCP::EmptyProperty<%
+ end %>
+
+      if <%= singular_table_name %>.save
+        MCP::Tool::Response.new([ { type: "text", text: "Updated #{<%= singular_table_name %>.to_mcp_response}" } ])
+      else
+        MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> of id = #{id} was not updated due to the following errors: #{<%= singular_table_name %>.errors.full_messages.join(', ')}" } ])
+      end
+    rescue ActiveRecord::RecordNotFound
+      MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> of id = #{id} was not found" } ])
+    rescue StandardError => e
+      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+    end
+  end
+end
+<% end -%>

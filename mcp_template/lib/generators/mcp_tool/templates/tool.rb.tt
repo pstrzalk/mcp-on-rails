@@ -1,0 +1,20 @@
+class <%= tool_class_name %> < MCP::Tool
+  description "TODO: Add description for <%= tool_class_name %>"
+  <% if attributes.any? %>
+  input_schema(
+    properties: {
+      <% attributes.each do |attribute| %><%= attribute.column_name %>: { type: "<%= map_attribute_type(attribute.type) %>" },
+      <% end %>
+    },
+    required: []
+  )
+  <% end %>
+
+  def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %><% end %>, server_context:)
+    # TODO: Implement your tool logic here
+
+    MCP::Tool::Response.new([{ type: "text", text: "OK" }])
+  rescue StandardError => e
+    MCP::Tool::Response.new([{ type: "text", text: "An error occurred, explained as: #{e.message}" }])
+  end
+end

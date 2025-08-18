@@ -1,0 +1,21 @@
+Description:
+    Generates a single MCP tool class. Pass the tool name and any arguments
+    it should accept. The tool name should be in snake_case format.
+
+    This generates a tool class in app/tools/ that inherits from ApplicationTool
+    and includes the specified arguments with proper type mapping.
+
+Example:
+    `bin/rails generate mcp_tool weather_tool longitude:string latitude:string`
+
+    Weather tool with longitude and latitude arguments.
+        Tool: app/tools/weather_tool.rb
+
+    `bin/rails generate mcp_tool user_lookup user_id:integer email:string`
+
+    User lookup tool with user_id and email arguments.
+        Tool: app/tools/user_lookup.rb
+
+Available field types:
+    string, text, integer, float, decimal, boolean, datetime, date, time, 
+    references, belongs_to, timestamp, digest, attachment, token, rich_text

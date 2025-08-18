@@ -1,0 +1,39 @@
+<% module_namespacing do -%>
+module <%= class_name.pluralize %>
+  class IndexTool < MCP::Tool
+    tool_name "<%= singular_table_name %>-index-tool"
+    <%
+      relation_attributes = attributes.select { %i[references belongs_to].include?(_1.type) }
+      tool_description = "List the last count of #{class_name.pluralize} entities. The count parameter is an integer and defaults to 10."
+      relation_attributes.each do |attribute|
+        tool_description += " #{attribute.column_name} property may be used to filter by integer identifier of the related #{attribute.name.titleize} entity."
+      end
+    %>description "<%= tool_description%>"
+
+    input_schema(
+      properties: {
+        count: { type: "integer" },<%
+        relation_attributes.each do |attribute| %>
+        <%= attribute.column_name %>: { type: "integer" },<% end %>
+      },
+      required: []
+    )
+<% filter_attributes = ["count: 10"] + relation_attributes.map { "#{_1.column_name}: nil" } %>
+    def self.call(<%= filter_attributes.join(", ") %>, server_context:)
+      <%= plural_table_name %> = <%= class_name %>.all<%
+      relation_attributes.each do |attribute|
+        if attribute.column_name.present? %>
+      <%= plural_table_name %> = <%= plural_table_name %>.where(<%= attribute.column_name %>: <%= attribute.column_name %>) if <%= attribute.column_name %>.present? <% end
+      end %>
+      <%= plural_table_name %> = <%= plural_table_name %>.last(count)
+
+      response = <%= plural_table_name %>.map(&:to_mcp_response).join("\n")
+      response = "Nothing was found" unless response.present?
+
+      MCP::Tool::Response.new([ { type: "text", text: response } ])
+    rescue StandardError => e
+      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+    end
+  end
+end
+<% end -%>
