@@ -10,7 +10,7 @@ class <%= tool_class_name %> < MCP::Tool
   )
   <% end %>
 
-  def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %><% end %>, server_context:)
+  def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %>, <% end %>server_context:)
     # TODO: Implement your tool logic here
 
     MCP::Tool::Response.new([{ type: "text", text: "OK" }])
