@@ -1,8 +1,3 @@
-# Load required libraries for MCP tools
-require "net/http"
-require "json"
-require "uri"
-
 MCP::EmptyProperty = Class.new
 
 # Require all tools to be able to list dependencies of MCP::Tool
