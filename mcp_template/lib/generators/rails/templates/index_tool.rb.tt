@@ -32,7 +32,7 @@ module <%= class_name.pluralize %>
 
       MCP::Tool::Response.new([ { type: "text", text: response } ])
     rescue StandardError => e
-      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+      MCP::Tool::Response.new([ { type: "text", text: "An error occurred, what happened was #{e.message}" } ])
     end
   end
 end

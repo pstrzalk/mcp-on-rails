@@ -25,7 +25,7 @@ module <%= class_name.pluralize %>
         MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> was not created due to the following errors: #{<%= singular_table_name %>.errors.full_messages.join(', ')}" } ])
       end
     rescue StandardError => e
-      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+      MCP::Tool::Response.new([ { type: "text", text: "An error occurred, what happened was #{e.message}" } ])
     end
   end
 end

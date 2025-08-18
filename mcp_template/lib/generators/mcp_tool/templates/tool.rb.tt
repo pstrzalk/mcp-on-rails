@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class <%= tool_class_name %> < MCP::Tool
   description "TODO: Add description for <%= tool_class_name %>"
   <% if attributes.any? %>

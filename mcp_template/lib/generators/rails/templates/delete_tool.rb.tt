@@ -19,7 +19,7 @@ module <%= class_name.pluralize %>
     rescue ActiveRecord::RecordNotFound
       MCP::Tool::Response.new([ { type: "text", text: "<%= class_name %> of id = #{id} was not found" } ])
     rescue StandardError => e
-      MCP::Tool::Response.new([ { type: "text", text: "An error occured, what happened was #{e.message}" } ])
+      MCP::Tool::Response.new([ { type: "text", text: "An error occurred, what happened was #{e.message}" } ])
     end
   end
 end

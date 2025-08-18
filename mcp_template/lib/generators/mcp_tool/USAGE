@@ -2,7 +2,7 @@ Description:
     Generates a single MCP tool class. Pass the tool name and any arguments
     it should accept. The tool name should be in snake_case format.
 
-    This generates a tool class in app/tools/ that inherits from ApplicationTool
+    This generates a tool class in app/tools/ that inherits from MCP::Tool
     and includes the specified arguments with proper type mapping.
 
 Example:
