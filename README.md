@@ -1,17 +1,20 @@
 # MCP on Rails
 
-A Rails application template that seamlessly integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails applications using the [`mcp` gem](https://rubygems.org/gems/mcp).
+A Rails application template that seamlessly integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails applications using the [mcp](https://rubygems.org/gems/mcp) gem.
 
 ## What This Does
 
 This template bootstraps a new Rails application with MCP server capabilities, allowing AI assistants to interact with your Rails models through structured tools. When you scaffold new models, MCP tools are automatically generated alongside the standard Rails files.
+
+You may read a longer introduction to the topic in my article at https://www.visuality.pl/posts/mcp-template-for-rails-applications
 
 ## Quick Start
 
 Create a new Rails application with MCP integration:
 
 ```bash
-rails new myapp -m mcp
+git clone https://github.com/pstrzalk/mcp-on-rails.git
+rails new myapp -m mcp-on-rails/mcp
 cd myapp
 ```
 
@@ -19,6 +22,15 @@ That's it! Your Rails app now has:
 - MCP server endpoint at `/mcp`
 - Automatic MCP tool generation during scaffolding
 - All necessary MCP infrastructure configured
+
+### Adding the MCP template to an existing Rails application
+
+You may just as easily apply this template to an existing Rails app.
+```bash
+git clone https://github.com/pstrzalk/mcp-on-rails.git
+cd your-project/
+rails app:template LOCATION=../mcp-on-rails/mcp
+```
 
 ## Usage
 
@@ -160,8 +172,11 @@ config/
 
 lib/
 └── generators/
-    ├── mcp_tool/                  # Custom tool generator
+    ├── mcp_tool/
+    │   ├── ...
+    │   └── mcp_tool_generator.rb  # Custom tool generator
     └── rails/
+        ├── ...
         ├── mcp_generator.rb       # Scaffold hook generator
         └── scaffold_controller_generator.rb  # Extended for MCP
 ```
@@ -185,36 +200,23 @@ Configure your AI assistant to connect to your Rails MCP server:
 rails server
 
 # Generate models with MCP tools
-rails generate scaffold ModelName field:type
+rails generate scaffold ModelName field:type otherField:otherType
 
 # Generate custom MCP tools
-rails generate mcp_tool ToolName field:type
+rails generate mcp_tool ToolName field:type otherField:otherType
 
 # List all MCP tools
 rake mcp:tools
-
-# Run tests
-rails test
-
-# Database operations
-rails db:migrate
-rails db:seed
 ```
 
 ## How It Works
 
 This template uses Rails' generator hook system to extend the standard scaffold controller generator. When you run `rails generate scaffold`, it automatically invokes the MCP generator to create tools alongside the standard Rails files.
 
-The approach is:
-- **Lightweight**: Only adds MCP-specific code, doesn't override Rails generators
-- **Maintainable**: Works with Rails updates automatically
-- **Standards-compliant**: Uses Rails' intended extension mechanism (like jbuilder)
-
-## Requirements
-
-- Ruby 3.0+
-- Rails 7.0+
-- The `mcp` gem (automatically added by the template)
+The approach:
+- Only adds MCP-specific code, doesn't override Rails generators
+- Works with Rails updates automatically
+- Uses Rails' intended extension mechanism (like jbuilder)
 
 ## Contributing
 
