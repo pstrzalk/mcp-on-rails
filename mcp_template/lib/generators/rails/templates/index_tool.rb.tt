@@ -15,8 +15,7 @@ module <%= class_name.pluralize %>
         count: { type: "integer" },<%
         relation_attributes.each do |attribute| %>
         <%= attribute.column_name %>: { type: "integer" },<% end %>
-      },
-      required: []
+      }
     )
 <% filter_attributes = ["count: 10"] + relation_attributes.map { "#{_1.column_name}: nil" } %>
     def self.call(<%= filter_attributes.join(", ") %>, server_context:)

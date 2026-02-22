@@ -10,8 +10,8 @@ module <%= class_name.pluralize %>
       properties: {<%
         attributes.each do |attribute| %>
         <%= attribute.column_name %>: { type: "<%= map_attribute_type(attribute.type) %>" },<% end %>
-      },
-      required: [ <%= relation_attributes.map { "\"#{_1.column_name}\"" }.join(", ") %> ]
+      }<% if relation_attributes.any? %>,
+      required: [ <%= relation_attributes.map { "\"#{_1.column_name}\"" }.join(", ") %> ]<% end %>
     )
 <% end %>
     def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %><% end %>, server_context:)
