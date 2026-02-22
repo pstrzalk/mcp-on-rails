@@ -1,8 +1,6 @@
-# MCP on Rails + OAuth
+# MCP on Rails (with optional OAuth)
 
-A Rails application template that integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails, secured by OAuth 2.0 using [Devise](https://github.com/heartcombo/devise) and [Doorkeeper](https://github.com/doorkeeper-gem/doorkeeper).
-
-This builds on the base [mcp-on-rails](https://github.com/pstrzalk/mcp-on-rails) template, adding full OAuth 2.0 protection with PKCE, dynamic client registration, and resource indicator support — everything needed for MCP's OAuth authorization flow.
+A Rails application template that integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails. During setup, the template asks whether to add OAuth 2.0 protection using [Devise](https://github.com/heartcombo/devise) and [Doorkeeper](https://github.com/doorkeeper-gem/doorkeeper) — so one template supports both plain MCP and fully authenticated setups.
 
 ## Quick Start
 
@@ -14,90 +12,114 @@ rails db:migrate
 rails server
 ```
 
-Your app now has an OAuth-protected MCP server at `/mcp`.
-
-## What the Template Does
-
-When you run `rails new myapp -m mcp-on-rails-oauth/mcp`, the template executes the following steps in order:
-
-### 1. Install gems
+The template will prompt:
 
 ```
-bundle add mcp devise doorkeeper
+Add Devise + Doorkeeper OAuth 2.0 authentication? (y/n)
 ```
 
-### 2. Copy static files
+Answer **n** for a plain MCP server or **y** for full OAuth protection.
 
-Copies the contents of `mcp_template/` into the new app. This includes:
+## Plain MCP (answer "n")
 
-| File | Purpose |
-|------|---------|
-| `config/initializers/doorkeeper.rb` | Pre-configured Doorkeeper: ActiveRecord ORM, PKCE enforcement (`force_pkce`), default + optional scopes (`public`, `read`, `write`), Devise-based resource owner authentication, RFC 8707 `custom_access_token_attributes [:resource]` |
-| `config/initializers/mcp.rb` | MCP configuration: `EmptyProperty` sentinel, tool autoloading from `app/tools/` |
-| `app/controllers/oauth_client_registration_controller.rb` | RFC 7591 dynamic client registration — rate-limited (10/hour), validates JSON content-type, creates Doorkeeper applications, returns client credentials |
-| `app/controllers/oauth_authorization_server_metadata_controller.rb` | RFC 9728 protected resource metadata + RFC 8414 authorization server metadata — returns PKCE support, endpoints, scopes, registration URL |
-| `app/models/oauth_application.rb` | ActiveRecord model for `oauth_applications` table |
-| `app/models/oauth_access_token.rb` | ActiveRecord model for `oauth_access_tokens` table |
-| `app/models/oauth_access_grant.rb` | ActiveRecord model for `oauth_access_grants` table |
-| `lib/generators/rails/mcp_generator.rb` | MCP tool generator invoked by scaffold hook |
-| `lib/generators/rails/scaffold_controller_generator.rb` | Extends scaffold to trigger MCP tool generation |
-| `lib/generators/rails/templates/*.rb.tt` | Templates for show/index/create/update/delete tools |
-| `lib/generators/mcp_tool/` | Standalone custom tool generator |
-| `lib/tasks/mcp.rake` | `rake mcp:tools` task to list registered tools |
+Creates a Rails app with an open MCP server — no authentication required.
 
-### 3. Run Devise generators
+### What you get
 
-```ruby
-generate "devise:install"    # Creates devise.rb initializer + locale
-generate "devise", "User"    # Creates User model + migration, inserts devise_for :users into routes
-generate "devise:views"      # Creates customizable view templates for sign-in/sign-up
+- **`mcp` gem** added to Gemfile
+- **`McpController`** at `/mcp` — inherits `ActionController::API`, handles MCP protocol
+- **MCP routes** — `POST /mcp`, `GET /mcp`, `DELETE /mcp`, `OPTIONS /mcp`
+- **Scaffold hook** — `rails generate scaffold` automatically creates MCP tools
+- **Custom tool generator** — `rails generate mcp_tool ToolName field:type`
+- **`to_mcp_response`** on ApplicationRecord for consistent text formatting
+- **`rake mcp:tools`** to list all registered tools
+
+### Usage
+
+```bash
+rails new myapp -m mcp-on-rails-oauth/mcp   # answer n
+cd myapp && rails db:migrate
+
+rails generate scaffold Post title:string body:text
+rails db:migrate
+rails server
 ```
 
-### 4. Add Doorkeeper associations to User model
+Test it:
 
-Injects `has_many :access_grants` and `has_many :access_tokens` into the User model so users are linked to their OAuth tokens.
+```bash
+# MCP initialize
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
 
-### 5. Generate Doorkeeper migration and enable foreign keys
-
-```ruby
-generate "doorkeeper:migration"
+# List tools
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 ```
 
-Then uncomments the foreign key lines in the generated migration to reference the `users` table. The template skips `doorkeeper:install` because it ships its own pre-configured `doorkeeper.rb` initializer.
+### Project structure (plain mode)
 
-### 6. Create PKCE migration
+```
+app/
+├── controllers/
+│   └── mcp_controller.rb              # Open MCP endpoint (no auth)
+├── models/
+│   └── application_record.rb          # Extended with to_mcp_response
+└── tools/                             # MCP tools (auto-generated per scaffold)
 
-Adds `code_challenge` and `code_challenge_method` columns to `oauth_access_grants` — required for PKCE (Proof Key for Code Exchange).
+config/
+├── initializers/
+│   └── mcp.rb                         # MCP tool autoloading
+└── routes.rb                          # MCP routes
+```
 
-### 7. Create resource indicator migration (RFC 8707)
+### Connecting AI assistants (plain mode)
 
-Adds a `resource` column to **both** `oauth_access_grants` and `oauth_access_tokens`. Doorkeeper's `custom_access_token_attributes` stores attributes on both tables.
+```json
+{
+  "name": "my-rails-app",
+  "type": "StreamableHttp",
+  "url": "http://localhost:3000/mcp"
+}
+```
 
-### 8. Create OAuth-protected MCP controller
+No authentication needed — the `/mcp` endpoint is open.
 
-Creates `McpController` inheriting from `ActionController::API` (not `ApplicationController` — avoids CSRF issues) with:
-- `doorkeeper_authorize! :public, :read, :write` — requires a valid OAuth token
-- Token audience validation (RFC 8707) — ensures the token's `resource` claim matches the MCP endpoint
-- `server_context` passing the token and `user_id` to MCP tools
+---
 
-### 9. Inject routes
+## OAuth MCP (answer "y")
 
-Adds all OAuth and MCP routes after the Devise-generated `devise_for :users` line:
-- `use_doorkeeper` — standard Doorkeeper OAuth routes
-- `POST /oauth/register` — dynamic client registration
-- `GET /.well-known/oauth-protected-resource` — protected resource metadata
-- `GET /.well-known/oauth-authorization-server` — authorization server metadata
-- `POST /mcp` + `GET /mcp` — MCP endpoint
+Creates a Rails app with an OAuth 2.0-protected MCP server, including PKCE, dynamic client registration, and resource indicator support — everything needed for MCP's OAuth authorization flow.
 
-### 10. Extend ApplicationRecord
+### What you get
 
-Adds `to_mcp_response` method for consistent MCP text formatting of model attributes.
+Everything from plain mode, plus:
 
-### 11. Configure autoloading
+- **`devise` + `doorkeeper` gems** added to Gemfile
+- **Devise** user authentication (sign-up, sign-in, password reset)
+- **Doorkeeper** OAuth 2.0 provider with PKCE enforcement (S256)
+- **`McpController`** protected by `doorkeeper_authorize!` with token audience validation (RFC 8707)
+- **Dynamic client registration** at `POST /oauth/register` (RFC 7591)
+- **Protected resource metadata** at `GET /.well-known/oauth-protected-resource` (RFC 9728)
+- **Authorization server metadata** at `GET /.well-known/oauth-authorization-server` (RFC 8414)
+- **Resource indicators** — tokens are scoped to the `/mcp` resource (RFC 8707)
 
-Updates `config/application.rb` to exclude generators from autoloading and allow all hosts (useful for development with ngrok, tunnels, etc.).
+### Usage
 
-## OAuth Flow
+```bash
+rails new myapp -m mcp-on-rails-oauth/mcp   # answer y
+cd myapp && rails db:migrate
+
+rails generate scaffold Post title:string body:text
+rails db:migrate
+rails server
+```
+
+The `/mcp` endpoint now requires a Bearer token — unauthenticated requests return 401.
+
+### OAuth flow
 
 The full authorization flow follows MCP's OAuth specification:
 
@@ -109,7 +131,62 @@ The full authorization flow follows MCP's OAuth specification:
 6. **Token exchange** — `POST /oauth/token` with `code_verifier` and `resource` parameter
 7. **MCP requests** — `POST /mcp` with `Authorization: Bearer <token>`
 
-## Usage
+### Supported RFCs
+
+| RFC | Description | Endpoint |
+|-----|-------------|----------|
+| OAuth 2.0 + PKCE | Authorization with Proof Key for Code Exchange (S256) | `/oauth/authorize`, `/oauth/token` |
+| RFC 7591 | Dynamic Client Registration | `POST /oauth/register` |
+| RFC 8414 | Authorization Server Metadata | `GET /.well-known/oauth-authorization-server` |
+| RFC 8707 | Resource Indicators | `resource` parameter in auth + token requests |
+| RFC 9728 | Protected Resource Metadata | `GET /.well-known/oauth-protected-resource` |
+
+### Project structure (OAuth mode)
+
+```
+app/
+├── controllers/
+│   ├── mcp_controller.rb                              # OAuth-protected MCP endpoint
+│   ├── oauth_client_registration_controller.rb        # RFC 7591
+│   └── oauth_authorization_server_metadata_controller.rb  # RFC 8414 + 9728
+├── models/
+│   ├── user.rb                                        # Devise user with OAuth associations
+│   ├── oauth_application.rb
+│   ├── oauth_access_token.rb
+│   └── oauth_access_grant.rb
+├── tools/                                             # MCP tools (auto-generated per scaffold)
+└── views/
+    └── devise/                                        # Customizable auth views
+
+config/
+├── initializers/
+│   ├── doorkeeper.rb                                  # OAuth + PKCE config
+│   ├── devise.rb                                      # User auth config
+│   └── mcp.rb                                         # MCP tool autoloading
+└── routes.rb                                          # All OAuth + MCP routes
+
+db/migrate/
+├── *_devise_create_users.rb
+├── *_create_doorkeeper_tables.rb
+├── *_enable_pkce.rb
+└── *_add_resource_to_oauth_tables.rb
+```
+
+### Connecting AI assistants (OAuth mode)
+
+```json
+{
+  "name": "my-rails-app",
+  "type": "StreamableHttp",
+  "url": "http://localhost:3000/mcp"
+}
+```
+
+The client must complete the OAuth PKCE flow before making MCP requests — the `/mcp` endpoint returns 401 without a valid Bearer token.
+
+---
+
+## Common Features (both modes)
 
 ### Scaffolding models with MCP tools
 
@@ -136,69 +213,6 @@ rails generate mcp_tool WeatherCheck location:string
 ```bash
 rake mcp:tools
 ```
-
-## Supported RFCs
-
-| RFC | Description | Endpoint |
-|-----|-------------|----------|
-| OAuth 2.0 + PKCE | Authorization with Proof Key for Code Exchange (S256) | `/oauth/authorize`, `/oauth/token` |
-| RFC 7591 | Dynamic Client Registration | `POST /oauth/register` |
-| RFC 8414 | Authorization Server Metadata | `GET /.well-known/oauth-authorization-server` |
-| RFC 8707 | Resource Indicators | `resource` parameter in auth + token requests |
-| RFC 9728 | Protected Resource Metadata | `GET /.well-known/oauth-protected-resource` |
-
-## Project Structure
-
-After applying the template:
-
-```
-app/
-├── controllers/
-│   ├── mcp_controller.rb                              # OAuth-protected MCP endpoint
-│   ├── oauth_client_registration_controller.rb        # RFC 7591
-│   └── oauth_authorization_server_metadata_controller.rb  # RFC 8414 + 9728
-├── models/
-│   ├── user.rb                                        # Devise user with OAuth associations
-│   ├── oauth_application.rb
-│   ├── oauth_access_token.rb
-│   └── oauth_access_grant.rb
-├── tools/                                             # MCP tools (auto-generated per scaffold)
-│   └── posts/
-│       ├── show_tool.rb
-│       ├── index_tool.rb
-│       ├── create_tool.rb
-│       ├── update_tool.rb
-│       └── delete_tool.rb
-└── views/
-    └── devise/                                        # Customizable auth views
-
-config/
-├── initializers/
-│   ├── doorkeeper.rb                                  # OAuth + PKCE config
-│   ├── devise.rb                                      # User auth config
-│   └── mcp.rb                                         # MCP tool autoloading
-└── routes.rb                                          # All OAuth + MCP routes
-
-db/migrate/
-├── *_devise_create_users.rb
-├── *_create_doorkeeper_tables.rb
-├── *_enable_pkce.rb
-└── *_add_resource_to_oauth_tables.rb
-```
-
-## Connecting AI Assistants
-
-Configure your MCP client to connect using OAuth:
-
-```json
-{
-  "name": "my-rails-app",
-  "type": "StreamableHttp",
-  "url": "http://localhost:3000/mcp"
-}
-```
-
-The client must complete the OAuth PKCE flow before making MCP requests — the `/mcp` endpoint returns 401 without a valid Bearer token.
 
 ## License
 
