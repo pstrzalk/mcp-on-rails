@@ -1,231 +1,205 @@
-# MCP on Rails
+# MCP on Rails + OAuth
 
-A Rails application template that seamlessly integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails applications using the [mcp](https://rubygems.org/gems/mcp) gem.
+A Rails application template that integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails, secured by OAuth 2.0 using [Devise](https://github.com/heartcombo/devise) and [Doorkeeper](https://github.com/doorkeeper-gem/doorkeeper).
 
-## What This Does
-
-This template bootstraps a new Rails application with MCP server capabilities, allowing AI assistants to interact with your Rails models through structured tools. When you scaffold new models, MCP tools are automatically generated alongside the standard Rails files.
-
-You may read a longer introduction to the topic in my article at https://www.visuality.pl/posts/mcp-template-for-rails-applications
+This builds on the base [mcp-on-rails](https://github.com/pstrzalk/mcp-on-rails) template, adding full OAuth 2.0 protection with PKCE, dynamic client registration, and resource indicator support — everything needed for MCP's OAuth authorization flow.
 
 ## Quick Start
 
-Create a new Rails application with MCP integration:
-
 ```bash
 git clone https://github.com/pstrzalk/mcp-on-rails.git
-rails new myapp -m mcp-on-rails/mcp
+rails new myapp -m mcp-on-rails-oauth/mcp
 cd myapp
-```
-
-That's it! Your Rails app now has:
-- MCP server endpoint at `/mcp`
-- Automatic MCP tool generation during scaffolding
-- All necessary MCP infrastructure configured
-
-### Adding the MCP template to an existing Rails application
-
-You may just as easily apply this template to an existing Rails app.
-```bash
-git clone https://github.com/pstrzalk/mcp-on-rails.git
-cd your-project/
-rails app:template LOCATION=../mcp-on-rails/mcp
-```
-
-## Usage
-
-### 1. Scaffolding Models with MCP Tools
-
-When you generate a scaffold, MCP tools are automatically created:
-
-```bash
-rails generate scaffold Post title:string content:text author:string
-```
-
-This creates the standard Rails files PLUS MCP tools in `app/tools/posts/`:
-- `show_tool.rb` - Retrieve a single post by ID
-- `index_tool.rb` - List posts with filtering and pagination
-- `create_tool.rb` - Create new posts
-- `update_tool.rb` - Update existing posts
-- `delete_tool.rb` - Delete posts
-
-### 2. Creating Custom MCP Tools
-
-Generate standalone MCP tools for custom functionality:
-
-```bash
-rails generate mcp_tool WeatherCheckTool location:string
-```
-
-This creates `app/tools/weather_tool.rb` with a customizable MCP tool structure. When you specify attributes, the generator automatically creates the input schema with proper types and includes them as method parameters.
-
-### 3. Starting Your MCP Server
-
-```bash
+rails db:migrate
 rails server
 ```
 
-Your MCP server is now available at:
-- **HTTP**: `http://localhost:3000/mcp` (streamable HTTP transport)
-- **Development**: Connect AI assistants to this endpoint
+Your app now has an OAuth-protected MCP server at `/mcp`.
 
-The server uses streamable HTTP transport, allowing for real-time communication between AI assistants and your Rails application.
+## What the Template Does
 
-### 4. Viewing Available Tools
+When you run `rails new myapp -m mcp-on-rails-oauth/mcp`, the template executes the following steps in order:
 
-List all registered MCP tools:
+### 1. Install gems
+
+```
+bundle add mcp devise doorkeeper
+```
+
+### 2. Copy static files
+
+Copies the contents of `mcp_template/` into the new app. This includes:
+
+| File | Purpose |
+|------|---------|
+| `config/initializers/doorkeeper.rb` | Pre-configured Doorkeeper: ActiveRecord ORM, PKCE enforcement (`force_pkce`), default + optional scopes (`public`, `read`, `write`), Devise-based resource owner authentication, RFC 8707 `custom_access_token_attributes [:resource]` |
+| `config/initializers/mcp.rb` | MCP configuration: `EmptyProperty` sentinel, tool autoloading from `app/tools/` |
+| `app/controllers/oauth_client_registration_controller.rb` | RFC 7591 dynamic client registration — rate-limited (10/hour), validates JSON content-type, creates Doorkeeper applications, returns client credentials |
+| `app/controllers/oauth_authorization_server_metadata_controller.rb` | RFC 9728 protected resource metadata + RFC 8414 authorization server metadata — returns PKCE support, endpoints, scopes, registration URL |
+| `app/models/oauth_application.rb` | ActiveRecord model for `oauth_applications` table |
+| `app/models/oauth_access_token.rb` | ActiveRecord model for `oauth_access_tokens` table |
+| `app/models/oauth_access_grant.rb` | ActiveRecord model for `oauth_access_grants` table |
+| `lib/generators/rails/mcp_generator.rb` | MCP tool generator invoked by scaffold hook |
+| `lib/generators/rails/scaffold_controller_generator.rb` | Extends scaffold to trigger MCP tool generation |
+| `lib/generators/rails/templates/*.rb.tt` | Templates for show/index/create/update/delete tools |
+| `lib/generators/mcp_tool/` | Standalone custom tool generator |
+| `lib/tasks/mcp.rake` | `rake mcp:tools` task to list registered tools |
+
+### 3. Run Devise generators
+
+```ruby
+generate "devise:install"    # Creates devise.rb initializer + locale
+generate "devise", "User"    # Creates User model + migration, inserts devise_for :users into routes
+generate "devise:views"      # Creates customizable view templates for sign-in/sign-up
+```
+
+### 4. Add Doorkeeper associations to User model
+
+Injects `has_many :access_grants` and `has_many :access_tokens` into the User model so users are linked to their OAuth tokens.
+
+### 5. Generate Doorkeeper migration and enable foreign keys
+
+```ruby
+generate "doorkeeper:migration"
+```
+
+Then uncomments the foreign key lines in the generated migration to reference the `users` table. The template skips `doorkeeper:install` because it ships its own pre-configured `doorkeeper.rb` initializer.
+
+### 6. Create PKCE migration
+
+Adds `code_challenge` and `code_challenge_method` columns to `oauth_access_grants` — required for PKCE (Proof Key for Code Exchange).
+
+### 7. Create resource indicator migration (RFC 8707)
+
+Adds a `resource` column to **both** `oauth_access_grants` and `oauth_access_tokens`. Doorkeeper's `custom_access_token_attributes` stores attributes on both tables.
+
+### 8. Create OAuth-protected MCP controller
+
+Creates `McpController` inheriting from `ActionController::API` (not `ApplicationController` — avoids CSRF issues) with:
+- `doorkeeper_authorize! :public, :read, :write` — requires a valid OAuth token
+- Token audience validation (RFC 8707) — ensures the token's `resource` claim matches the MCP endpoint
+- `server_context` passing the token and `user_id` to MCP tools
+
+### 9. Inject routes
+
+Adds all OAuth and MCP routes after the Devise-generated `devise_for :users` line:
+- `use_doorkeeper` — standard Doorkeeper OAuth routes
+- `POST /oauth/register` — dynamic client registration
+- `GET /.well-known/oauth-protected-resource` — protected resource metadata
+- `GET /.well-known/oauth-authorization-server` — authorization server metadata
+- `POST /mcp` + `GET /mcp` — MCP endpoint
+
+### 10. Extend ApplicationRecord
+
+Adds `to_mcp_response` method for consistent MCP text formatting of model attributes.
+
+### 11. Configure autoloading
+
+Updates `config/application.rb` to exclude generators from autoloading and allow all hosts (useful for development with ngrok, tunnels, etc.).
+
+## OAuth Flow
+
+The full authorization flow follows MCP's OAuth specification:
+
+1. **Discovery** — Client fetches `GET /.well-known/oauth-protected-resource` to find the authorization server
+2. **Server metadata** — Client fetches `GET /.well-known/oauth-authorization-server` for endpoints and capabilities
+3. **Client registration** — `POST /oauth/register` with client metadata (RFC 7591)
+4. **Authorization** — `GET /oauth/authorize` with PKCE `code_challenge` (S256) and `resource` parameter
+5. **User authentication** — Devise handles sign-in/sign-up
+6. **Token exchange** — `POST /oauth/token` with `code_verifier` and `resource` parameter
+7. **MCP requests** — `POST /mcp` with `Authorization: Bearer <token>`
+
+## Usage
+
+### Scaffolding models with MCP tools
+
+```bash
+rails generate scaffold Post title:string content:text
+rails db:migrate
+```
+
+This creates standard Rails files plus 5 MCP tools in `app/tools/posts/`:
+- `show_tool.rb` — Retrieve a single post by ID
+- `index_tool.rb` — List posts with pagination
+- `create_tool.rb` — Create new posts
+- `update_tool.rb` — Update existing posts
+- `delete_tool.rb` — Delete posts
+
+### Creating custom MCP tools
+
+```bash
+rails generate mcp_tool WeatherCheck location:string
+```
+
+### Listing available tools
 
 ```bash
 rake mcp:tools
 ```
 
-## Example: Generated MCP Tools
+## Supported RFCs
 
-For a `Post` model with `title:string` and `content:text`, the generated `create_tool.rb` looks like:
-
-```ruby
-module Posts
-  class CreateTool < MCP::Tool
-    tool_name "post-create-tool"
-    description "Create a new Post entity"
-
-    input_schema(
-      properties: {
-        title: { type: "string" },
-        content: { type: "string" },
-      },
-      required: []
-    )
-
-    def self.call(title: nil, content: nil, server_context:)
-      post = Post.new(title: title, content: content)
-
-      if post.save
-        MCP::Tool::Response.new([{
-          type: "text",
-          text: "Created #{post.to_mcp_response}"
-        }])
-      else
-        MCP::Tool::Response.new([{
-          type: "text",
-          text: "Post was not created due to errors: #{post.errors.full_messages.join(', ')}"
-        }])
-      end
-    rescue StandardError => e
-      MCP::Tool::Response.new([{
-        type: "text",
-        text: "An error occurred: #{e.message}"
-      }])
-    end
-  end
-end
-```
-
-## MCP Tool Features
-
-### Automatic Schema Generation
-- **String/Text fields**: Mapped to `type: "string"`
-- **Integer/Reference fields**: Mapped to `type: "integer"`
-- **Boolean fields**: Mapped to `type: "boolean"`
-- **References**: Automatically included in required fields and filtering
-
-### Built-in Functionality
-- **CRUD Operations**: Full create, read, update, delete support
-- **Filtering**: Index tools support filtering by reference fields
-- **Pagination**: Index tools include count parameter (default: 10)
-- **Error Handling**: Comprehensive error responses
-- **Validation**: Rails model validations are respected
-
-### Model Integration
-Each model gets a `to_mcp_response` method for consistent formatting:
-
-```ruby
-def to_mcp_response
-  result = [self.class.name]
-  result += attributes.map { |key, value| "  **#{key}**: #{value}" }
-  result.join("\n")
-end
-```
+| RFC | Description | Endpoint |
+|-----|-------------|----------|
+| OAuth 2.0 + PKCE | Authorization with Proof Key for Code Exchange (S256) | `/oauth/authorize`, `/oauth/token` |
+| RFC 7591 | Dynamic Client Registration | `POST /oauth/register` |
+| RFC 8414 | Authorization Server Metadata | `GET /.well-known/oauth-authorization-server` |
+| RFC 8707 | Resource Indicators | `resource` parameter in auth + token requests |
+| RFC 9728 | Protected Resource Metadata | `GET /.well-known/oauth-protected-resource` |
 
 ## Project Structure
 
-After using this template, your Rails app will have:
+After applying the template:
 
 ```
 app/
 ├── controllers/
-│   └── mcp_controller.rb          # MCP protocol handler
+│   ├── mcp_controller.rb                              # OAuth-protected MCP endpoint
+│   ├── oauth_client_registration_controller.rb        # RFC 7591
+│   └── oauth_authorization_server_metadata_controller.rb  # RFC 8414 + 9728
 ├── models/
-│   └── application_record.rb      # Extended with to_mcp_response
-└── tools/                         # MCP tools directory
-    └── posts/                     # Auto-generated for each model
-        ├── show_tool.rb
-        ├── index_tool.rb
-        ├── create_tool.rb
-        ├── update_tool.rb
-        └── delete_tool.rb
+│   ├── user.rb                                        # Devise user with OAuth associations
+│   ├── oauth_application.rb
+│   ├── oauth_access_token.rb
+│   └── oauth_access_grant.rb
+├── tools/                                             # MCP tools (auto-generated per scaffold)
+│   └── posts/
+│       ├── show_tool.rb
+│       ├── index_tool.rb
+│       ├── create_tool.rb
+│       ├── update_tool.rb
+│       └── delete_tool.rb
+└── views/
+    └── devise/                                        # Customizable auth views
 
 config/
-├── routes.rb                      # MCP endpoint routes
-└── initializers/
-    └── mcp.rb                     # MCP configuration
+├── initializers/
+│   ├── doorkeeper.rb                                  # OAuth + PKCE config
+│   ├── devise.rb                                      # User auth config
+│   └── mcp.rb                                         # MCP tool autoloading
+└── routes.rb                                          # All OAuth + MCP routes
 
-lib/
-└── generators/
-    ├── mcp_tool/
-    │   ├── ...
-    │   └── mcp_tool_generator.rb  # Custom tool generator
-    └── rails/
-        ├── ...
-        ├── mcp_generator.rb       # Scaffold hook generator
-        └── scaffold_controller_generator.rb  # Extended for MCP
+db/migrate/
+├── *_devise_create_users.rb
+├── *_create_doorkeeper_tables.rb
+├── *_enable_pkce.rb
+└── *_add_resource_to_oauth_tables.rb
 ```
 
 ## Connecting AI Assistants
 
-Configure your AI assistant to connect to your Rails MCP server:
+Configure your MCP client to connect using OAuth:
 
 ```json
 {
-  "name": "my-app",
+  "name": "my-rails-app",
   "type": "StreamableHttp",
   "url": "http://localhost:3000/mcp"
 }
 ```
 
-## Development Commands
-
-```bash
-# Start the Rails server
-rails server
-
-# Generate models with MCP tools
-rails generate scaffold ModelName field:type otherField:otherType
-
-# Generate custom MCP tools
-rails generate mcp_tool ToolName field:type otherField:otherType
-
-# List all MCP tools
-rake mcp:tools
-```
-
-## How It Works
-
-This template uses Rails' generator hook system to extend the standard scaffold controller generator. When you run `rails generate scaffold`, it automatically invokes the MCP generator to create tools alongside the standard Rails files.
-
-The approach:
-- Only adds MCP-specific code, doesn't override Rails generators
-- Works with Rails updates automatically
-- Uses Rails' intended extension mechanism (like jbuilder)
-
-## Contributing
-
-This is a Rails application template. To modify:
-
-1. Edit `mcp` - the main template file
-2. Update `mcp_template/` - files copied to new Rails apps
-3. Test with: `rails new testapp -m mcp`
+The client must complete the OAuth PKCE flow before making MCP requests — the `/mcp` endpoint returns 401 without a valid Bearer token.
 
 ## License
 
-MIT License - see the template code for details.
+MIT License

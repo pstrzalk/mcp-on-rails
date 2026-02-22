@@ -1,42 +1,143 @@
-# Rails application template to install ruby-mcp gem and run its installer
-run "bundle add mcp"
+# Rails application template to install MCP with OAuth (Devise + Doorkeeper)
+run "bundle add mcp devise doorkeeper"
 
 require 'fileutils'
 source_dir = File.expand_path('mcp_template', __dir__)
 destination_dir = Dir.pwd
 FileUtils.cp_r("#{source_dir}/.", destination_dir)
 
-create_file "app/controllers/mcp_controller.rb", <<~RUBY
-# frozen_string_literal: true
+# Run Devise install generator
+generate "devise:install"
 
-class McpController < ActionController::API
-  def handle
-    if params[:method] == "notifications/initialized"
-      head :accepted
-    else
-      render(json: mcp_server.handle_json(request.body.read))
+# Generate User model with Devise (also inserts `devise_for :users` into routes)
+generate "devise", "User"
+
+# Add Doorkeeper associations to User model
+inject_into_file "app/models/user.rb", after: "class User < ApplicationRecord\n" do
+  <<-RUBY
+
+  has_many :access_grants,
+           class_name: "Doorkeeper::AccessGrant",
+           foreign_key: :resource_owner_id,
+           dependent: :delete_all
+
+  has_many :access_tokens,
+           class_name: "Doorkeeper::AccessToken",
+           foreign_key: :resource_owner_id,
+           dependent: :delete_all
+
+  RUBY
+end
+
+# Generate Devise views for customization
+generate "devise:views"
+
+# Generate Doorkeeper migration (skip doorkeeper:install — we provide our own initializer)
+generate "doorkeeper:migration"
+
+# Uncomment foreign key references to users in doorkeeper migration
+doorkeeper_migration = Dir.glob("db/migrate/*_create_doorkeeper_tables.rb").first
+if doorkeeper_migration
+  gsub_file doorkeeper_migration,
+    /# Uncomment below to ensure a valid reference to the resource owner's table\n\s+# add_foreign_key :oauth_access_grants, <model>, column: :resource_owner_id\n\s+# add_foreign_key :oauth_access_tokens, <model>, column: :resource_owner_id/,
+    "add_foreign_key :oauth_access_grants, :users, column: :resource_owner_id\n    add_foreign_key :oauth_access_tokens, :users, column: :resource_owner_id"
+end
+
+# Create PKCE migration
+migration_version = "[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]"
+pkce_migration = <<~RUBY
+  # frozen_string_literal: true
+
+  class EnablePkce < ActiveRecord::Migration#{migration_version}
+    def change
+      add_column :oauth_access_grants, :code_challenge, :string, null: true
+      add_column :oauth_access_grants, :code_challenge_method, :string, null: true
     end
   end
-
-  private
-
-  def mcp_server
-    MCP::Server.new(
-      name: "rails_mcp_server",
-      version: "1.0.0",
-      tools: MCP::Tool.descendants
-    )
-  end
-end
 RUBY
 
-mcp_routes = <<~RUBY
+# Create resource indicator migration (RFC 8707)
+# Doorkeeper's custom_access_token_attributes stores on both grants and tokens
+resource_migration = <<~RUBY
+  class AddResourceToOauthTables < ActiveRecord::Migration#{migration_version}
+    def change
+      add_column :oauth_access_grants, :resource, :string
+      add_column :oauth_access_tokens, :resource, :string
+      add_index :oauth_access_tokens, :resource
+    end
+  end
+RUBY
+
+# Write PKCE migration with timestamp offset to ensure ordering
+sleep(1)
+pkce_timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
+create_file "db/migrate/#{pkce_timestamp}_enable_pkce.rb", pkce_migration
+
+sleep(1)
+resource_timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
+create_file "db/migrate/#{resource_timestamp}_add_resource_to_oauth_tables.rb", resource_migration
+
+# Create OAuth-protected MCP Controller
+create_file "app/controllers/mcp_controller.rb", <<~RUBY, force: true
+  # frozen_string_literal: true
+
+  class McpController < ActionController::API
+    before_action -> { doorkeeper_authorize! :public, :read, :write } # Requires access token for all actions
+    before_action :validate_token_audience!
+
+    def handle
+      if params[:method] == "notifications/initialized"
+        head(:accepted) and return
+      end
+
+      render(json: mcp_server.handle_json(request.body.read))
+    end
+
+    private
+
+    def validate_token_audience!
+      return true unless doorkeeper_token # Skip if no token
+
+      # Validate that token resource matches this server (RFC 8707)
+      return if doorkeeper_token.resource == "\#\{request.base_url}/mcp"
+
+      render json: {
+        error: "invalid_token",
+        error_description: "Token not valid for this resource"
+      }, status: :unauthorized
+    end
+
+    def mcp_server
+      MCP::Server.new(
+        name: "rails_mcp_server",
+        version: "1.0.0",
+        tools: MCP::Tool.descendants,
+        server_context: { token: doorkeeper_token, user_id: doorkeeper_token.resource_owner_id }
+      )
+    end
+  end
+RUBY
+
+# Inject routes after the devise_for :users line (already inserted by devise generator)
+oauth_routes = <<-RUBY
+  use_doorkeeper
+
+  # RFC 7591: Dynamic Client Registration Protocol
+  post "/oauth/register", to: "oauth_client_registration#create", as: :oauth_register
+
+  # RFC 9728: Protected Resource Metadata (MCP server as protected resource)
+  get "/.well-known/oauth-protected-resource",       to: "oauth_authorization_server_metadata#protected_resource"
+  get "/.well-known/oauth-protected-resource/mcp",   to: "oauth_authorization_server_metadata#protected_resource"
+
+  # RFC 8414: Authorization Server Metadata (OAuth server endpoints)
+  get "/.well-known/oauth-authorization-server",     to: "oauth_authorization_server_metadata#authorization_server"
+  get "/.well-known/oauth-authorization-server/mcp", to: "oauth_authorization_server_metadata#authorization_server"
+
   # Model Context Protocol
   post "/mcp", to: "mcp#handle"
   get  "/mcp", to: "mcp#handle"
 RUBY
-inject_into_file "config/routes.rb", mcp_routes, after: "Rails.application.routes.draw do\n"
-
+inject_into_file "config/routes.rb", oauth_routes, after: "devise_for :users\n"
 
 # Add to_mcp_response method to ApplicationRecord
 application_record = <<RUBY
@@ -56,3 +157,8 @@ inject_into_file "app/models/application_record.rb", application_record, after: 
 gsub_file "config/application.rb",
   'config.autoload_lib(ignore: %w[assets tasks])',
   'config.autoload_lib(ignore: %w[assets tasks generators])'
+
+# Allow all hosts for development (useful for ngrok, etc.)
+inject_into_file "config/application.rb", after: "config.autoload_lib(ignore: %w[assets tasks generators])\n" do
+  "\n    # Allow all hosts\n    config.hosts = []\n"
+end
