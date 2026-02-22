@@ -208,10 +208,21 @@ This creates standard Rails files plus 5 MCP tools in `app/tools/posts/`:
 rails generate mcp_tool WeatherCheck location:string
 ```
 
-### Listing available tools
+### Creating custom MCP prompts
+
+```bash
+rails generate mcp_prompt hotel_finder location:required check_in_date:required adults price_max
+```
+
+This creates `app/prompts/hotel_finder.rb` with a prompt class inheriting from `MCP::Prompt`. Arguments are optional by default — append `:required` to make them required.
+
+Prompts are automatically loaded from `app/prompts/` and registered with the MCP server. Unlike tools, prompts are **not** auto-generated during scaffolding — they are created explicitly via the generator.
+
+### Listing available tools and prompts
 
 ```bash
 rake mcp:tools
+rake mcp:prompts
 ```
 
 ## License

@@ -1,0 +1,38 @@
+# frozen_string_literal: true
+
+class <%= prompt_class_name %> < MCP::Prompt
+  prompt_name "<%= prompt_identifier %>"
+  description "TODO: Add description for <%= prompt_class_name %>"
+<% if parsed_arguments.any? -%>
+  arguments [
+<% parsed_arguments.each do |arg| -%>
+    MCP::Prompt::Argument.new(
+      name: "<%= arg[:name] %>",
+      description: "TODO: Add description for <%= arg[:name] %>",
+      required: <%= arg[:required] %>
+    ),
+<% end -%>
+  ]
+<% end -%>
+
+  class << self
+    def template(args, server_context:)
+<% parsed_arguments.each do |arg| -%>
+      <%= arg[:name] %> = args[:<%= arg[:name] %>]
+<% end -%>
+
+      # TODO: Build your prompt message
+      user_text = "TODO: Implement prompt template"
+
+      MCP::Prompt::Result.new(
+        description: "<%= prompt_class_name %>",
+        messages: [
+          MCP::Prompt::Message.new(
+            role: "user",
+            content: MCP::Content::Text.new(user_text)
+          )
+        ]
+      )
+    end
+  end
+end

@@ -13,4 +13,14 @@ namespace :mcp do
       puts "#{klass.name}\n  Description: #{description}\n  Input Schema: #{klass.input_schema.to_json}\n\n"
     end
   end
+
+  desc "List MCP Prompts"
+  task prompts: :environment do
+    puts "Listing registered MCP prompts:"
+
+    MCP::Prompt.descendants.each do |klass|
+      args = (klass.arguments || []).map { |a| "#{a.name}#{a.required ? ' (required)' : ''}" }.join(", ")
+      puts "#{klass.name}\n  Description: #{klass.description}\n  Arguments: #{args}\n\n"
+    end
+  end
 end

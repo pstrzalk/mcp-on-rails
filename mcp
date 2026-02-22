@@ -127,6 +127,7 @@ if use_oauth
           name: "rails_mcp_server",
           version: "1.0.0",
           tools: MCP::Tool.descendants,
+          prompts: MCP::Prompt.descendants,
           server_context: { token: doorkeeper_token, user_id: doorkeeper_token.resource_owner_id }
         )
       end
@@ -151,7 +152,8 @@ else
         MCP::Server.new(
           name: "rails_mcp_server",
           version: "1.0.0",
-          tools: MCP::Tool.descendants
+          tools: MCP::Tool.descendants,
+          prompts: MCP::Prompt.descendants
         )
       end
     end

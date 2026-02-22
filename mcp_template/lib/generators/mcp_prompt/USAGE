@@ -1,0 +1,19 @@
+Description:
+    Generates a single MCP prompt class. Pass the prompt name and any arguments
+    it should accept. The prompt name should be in snake_case format.
+
+    This generates a prompt class in app/prompts/ that inherits from MCP::Prompt
+    and includes the specified arguments.
+
+    Arguments are optional by default. Append :required to make them required.
+
+Example:
+    `bin/rails generate mcp_prompt hotel_finder location:required check_in_date:required price_max`
+
+    Hotel finder prompt with required location and check_in_date, optional price_max.
+        Prompt: app/prompts/hotel_finder.rb
+
+    `bin/rails generate mcp_prompt code_review code:required language:required style`
+
+    Code review prompt with required code and language, optional style.
+        Prompt: app/prompts/code_review.rb
