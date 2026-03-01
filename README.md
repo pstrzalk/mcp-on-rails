@@ -20,6 +20,18 @@ Add Devise + Doorkeeper OAuth 2.0 authentication? (y/n)
 
 Answer **n** for a plain MCP server or **y** for full OAuth protection.
 
+### Adding the MCP template to an existing Rails application
+
+You may just as easily apply this template to an existing Rails app.
+
+```bash
+git clone https://github.com/pstrzalk/mcp-on-rails.git
+cd your-project/
+rails app:template LOCATION=../mcp-on-rails/mcp
+```
+
+---
+
 ## Plain MCP (answer "n")
 
 Creates a Rails app with an open MCP server — no authentication required.
