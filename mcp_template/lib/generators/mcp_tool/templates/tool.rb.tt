@@ -7,8 +7,7 @@ class <%= tool_class_name %> < MCP::Tool
     properties: {
       <% attributes.each do |attribute| %><%= attribute.column_name %>: { type: "<%= map_attribute_type(attribute.type) %>" },
       <% end %>
-    },
-    required: []
+    }
   )
   <% end %>
 
