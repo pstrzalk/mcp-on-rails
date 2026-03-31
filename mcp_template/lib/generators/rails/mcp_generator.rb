@@ -11,15 +11,39 @@ module Rails
 
       argument :attributes, type: :array, default: [], banner: "field:type field:type"
 
+      TOOLS = {
+        "show_tool"   => "Show",
+        "index_tool"  => "Index",
+        "create_tool" => "Create",
+        "update_tool" => "Update",
+        "delete_tool" => "Delete"
+      }.freeze
+
       def create_mcp_tools
-        template "show_tool.rb",   File.join("app", "tools", controller_file_path, "show_tool.rb")
-        template "index_tool.rb",  File.join("app", "tools", controller_file_path, "index_tool.rb")
-        template "create_tool.rb", File.join("app", "tools", controller_file_path, "create_tool.rb")
-        template "update_tool.rb", File.join("app", "tools", controller_file_path, "update_tool.rb")
-        template "delete_tool.rb", File.join("app", "tools", controller_file_path, "delete_tool.rb")
+        choice = ask("Generate MCP tools? (All / Some / None)", limited_to: %w[all some none a s n], case_insensitive: true)
+
+        case choice.downcase[0]
+        when "n"
+          say "Skipping MCP tool generation", :yellow
+          return
+        when "a"
+          TOOLS.each_key { |tool| create_tool_file(tool) }
+        when "s"
+          TOOLS.each do |tool, label|
+            if yes?("  Generate #{label} tool for #{class_name}? (y/n)")
+              create_tool_file(tool)
+            else
+              say_status :skip, File.join("app", "tools", controller_file_path, "#{tool}.rb"), :yellow
+            end
+          end
+        end
       end
 
       private
+
+      def create_tool_file(tool)
+        template "#{tool}.rb", File.join("app", "tools", controller_file_path, "#{tool}.rb")
+      end
 
       def map_attribute_type(type)
         case type.to_sym
