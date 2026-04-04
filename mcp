@@ -186,8 +186,6 @@ else
     # Model Context Protocol
     post "/mcp", to: "mcp#handle"
     get  "/mcp", to: "mcp#handle"
-    delete "/mcp", to: "mcp#handle"
-    options  "/mcp", to: "mcp#handle"
   RUBY
   inject_into_file "config/routes.rb", mcp_routes, after: "Rails.application.routes.draw do\n"
 end

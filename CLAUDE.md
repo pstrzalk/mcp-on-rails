@@ -32,7 +32,7 @@ Read contents of https://raw.githubusercontent.com/rails/rails/refs/heads/main/g
 MCP Tools are Ruby classes that inherit from `MCP::Tool` and provide AI assistants with structured access to application functionality:
 
 - **Location**: `app/tools/` directory
-- **Structure**: Each tool defines `tool_name`, `description`, `input_schema`, and `call` method
+- **Structure**: Each tool defines `description`, `input_schema`, and `call` method. Scaffold-generated tools also set `tool_name`.
 - **Autoloading**: Tools are automatically loaded via `config/initializers/mcp.rb`
 - **Generation**: Use `rails generate mcp_tool ToolName field:type` to create new tools
 - **Response Format**: Tools return `MCP::Tool::Response` objects with text content
@@ -58,8 +58,7 @@ module Posts
       properties: {
         title: { type: "string" },
         content: { type: "string" }
-      },
-      required: []
+      }
     )
 
     def self.call(title: nil, content: nil, server_context:)
@@ -68,10 +67,10 @@ module Posts
       if post.save
         MCP::Tool::Response.new([{ type: "text", text: "Created #{post.to_mcp_response}" }])
       else
-        MCP::Tool::Response.new([{ type: "text", text: "Post was not created due to errors: #{post.errors.full_messages.join(', ')}" }])
+        MCP::Tool::Response.new([{ type: "text", text: "Post was not created due to the following errors: #{post.errors.full_messages.join(', ')}" }])
       end
     rescue StandardError => e
-      MCP::Tool::Response.new([{ type: "text", text: "An error occurred: #{e.message}" }])
+      MCP::Tool::Response.new([{ type: "text", text: "An error occurred, what happened was #{e.message}" }])
     end
   end
 end

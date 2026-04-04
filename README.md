@@ -40,11 +40,12 @@ Creates a Rails app with an open MCP server — no authentication required.
 
 - **`mcp` gem** added to Gemfile
 - **`McpController`** at `/mcp` — inherits `ActionController::API`, handles MCP protocol
-- **MCP routes** — `POST /mcp`, `GET /mcp`, `DELETE /mcp`, `OPTIONS /mcp`
+- **MCP routes** — `POST /mcp`, `GET /mcp`
 - **Scaffold hook** — `rails generate scaffold` automatically creates MCP tools
 - **Custom tool generator** — `rails generate mcp_tool ToolName field:type`
+- **Custom prompt generator** — `rails generate mcp_prompt PromptName arg arg:required`
 - **`to_mcp_response`** on ApplicationRecord for consistent text formatting
-- **`rake mcp:tools`** to list all registered tools
+- **`rake mcp:tools`** and **`rake mcp:prompts`** to list all registered tools and prompts
 
 ### Usage
 
@@ -79,12 +80,18 @@ app/
 │   └── mcp_controller.rb              # Open MCP endpoint (no auth)
 ├── models/
 │   └── application_record.rb          # Extended with to_mcp_response
+├── prompts/                           # MCP prompts (created via generator)
 └── tools/                             # MCP tools (auto-generated per scaffold)
 
 config/
 ├── initializers/
-│   └── mcp.rb                         # MCP tool autoloading
+│   └── mcp.rb                         # MCP tool and prompt autoloading
 └── routes.rb                          # MCP routes
+
+lib/
+├── generators/                        # MCP tool and prompt generators
+└── tasks/
+    └── mcp.rake                       # rake mcp:tools, rake mcp:prompts
 ```
 
 ### Connecting AI assistants (plain mode)
@@ -166,6 +173,7 @@ app/
 │   ├── oauth_application.rb
 │   ├── oauth_access_token.rb
 │   └── oauth_access_grant.rb
+├── prompts/                                           # MCP prompts (created via generator)
 ├── tools/                                             # MCP tools (auto-generated per scaffold)
 └── views/
     └── devise/                                        # Customizable auth views

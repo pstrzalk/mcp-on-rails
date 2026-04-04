@@ -6,8 +6,6 @@ Doorkeeper.configure do
   default_scopes :public
   optional_scopes :write, :read
 
-  # This sometimes breaks the devise login screen,
-  # but in theory should be set due to McpController inheriting from ActionController::API
   base_controller "ApplicationController"
 
   resource_owner_authenticator do
