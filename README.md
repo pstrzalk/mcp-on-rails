@@ -45,7 +45,7 @@ Creates a Rails app with an open MCP server — no authentication required.
 - **Custom tool generator** — `rails generate mcp_tool ToolName field:type`
 - **Custom prompt generator** — `rails generate mcp_prompt PromptName arg arg:required`
 - **`to_mcp_response`** on ApplicationRecord for consistent text formatting
-- **`rake mcp:tools`** and **`rake mcp:prompts`** to list all registered tools and prompts
+- **`rake mcp:tools`** and **`rake mcp:prompts`** to list all registered tools and prompts (use `mcp:tools:verbose` / `mcp:prompts:verbose` for full details)
 
 ### Usage
 
@@ -91,7 +91,7 @@ config/
 lib/
 ├── generators/                        # MCP tool and prompt generators
 └── tasks/
-    └── mcp.rake                       # rake mcp:tools, rake mcp:prompts
+    └── mcp.rake                       # rake mcp:tools, rake mcp:prompts (and verbose variants)
 ```
 
 ### Connecting AI assistants (plain mode)
@@ -241,8 +241,10 @@ Prompts are automatically loaded from `app/prompts/` and registered with the MCP
 ### Listing available tools and prompts
 
 ```bash
-rake mcp:tools
-rake mcp:prompts
+rake mcp:tools             # compact one-line-per-tool summary
+rake mcp:tools:verbose     # full details with schema
+rake mcp:prompts           # compact one-line-per-prompt summary
+rake mcp:prompts:verbose   # full details with arguments
 ```
 
 ## License

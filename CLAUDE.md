@@ -143,8 +143,10 @@ rails generate mcp_prompt hotel_finder location:required check_in_date:required 
 
 ### MCP-Specific Commands
 ```bash
-rake mcp:tools          # List all registered MCP tools
-rake mcp:prompts        # List all registered MCP prompts
+rake mcp:tools             # Compact one-line-per-tool summary
+rake mcp:tools:verbose     # Full details with schema
+rake mcp:prompts           # Compact one-line-per-prompt summary
+rake mcp:prompts:verbose   # Full details with arguments
 rails server            # Start MCP server (streamable HTTP at /mcp)
 rails test              # Run test suite
 rails db:migrate        # Run database migrations
