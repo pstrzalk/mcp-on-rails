@@ -22,7 +22,7 @@ module <%= class_name.pluralize %>
 <% end %>
     def self.call(<% if attributes.any? %><%= attributes.map { |attr| "#{attr.column_name}: nil" }.join(", ") %><% end %>, server_context:)
       <%= singular_table_name %> = <%= class_name %>.new<% if attributes.any? %>(
-        <%= attributes.map { "#{_1.column_name}: #{_1.column_name}" }.join(",\n") %>
+        <%= attributes.map { "#{_1.column_name}: #{_1.column_name}" }.join(",\n        ") %>
       )
 <% end %>
       if <%= singular_table_name %>.save
