@@ -3,6 +3,12 @@ module <%= class_name.pluralize %>
   class CreateTool < MCP::Tool
     tool_name "<%= singular_table_name %>-create-tool"
     description "Create a new <%= class_name %> entity"
+    annotations(
+      read_only_hint: false,
+      destructive_hint: false,
+      idempotent_hint: false,
+      open_world_hint: false
+    )
 <% if attributes.any?
     relation_attributes = attributes.select { %i[references belongs_to].include?(_1.type) }
 %>

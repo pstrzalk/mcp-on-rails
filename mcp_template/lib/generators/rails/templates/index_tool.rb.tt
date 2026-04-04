@@ -9,6 +9,12 @@ module <%= class_name.pluralize %>
         tool_description += " #{attribute.column_name} property may be used to filter by integer identifier of the related #{attribute.name.titleize} entity."
       end
     %>description "<%= tool_description%>"
+    annotations(
+      read_only_hint: true,
+      destructive_hint: false,
+      idempotent_hint: true,
+      open_world_hint: false
+    )
 
     input_schema(
       properties: {

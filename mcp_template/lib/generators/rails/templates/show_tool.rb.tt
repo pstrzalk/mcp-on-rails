@@ -3,6 +3,12 @@ module <%= class_name.pluralize %>
   class ShowTool < MCP::Tool
     tool_name "<%= singular_table_name %>-show-tool"
     description "Show all information about <%= class_name %> of the given ID"
+    annotations(
+      read_only_hint: true,
+      destructive_hint: false,
+      idempotent_hint: true,
+      open_world_hint: false
+    )
 
     input_schema(
       properties: {

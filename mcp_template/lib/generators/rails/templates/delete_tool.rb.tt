@@ -3,6 +3,12 @@ module <%= class_name.pluralize %>
   class DeleteTool < MCP::Tool
     tool_name "<%= singular_table_name %>-delete-tool"
     description "Delete a <%= class_name %> entity of the given ID"
+    annotations(
+      read_only_hint: false,
+      destructive_hint: true,
+      idempotent_hint: true,
+      open_world_hint: false
+    )
 
     input_schema(
       properties: {

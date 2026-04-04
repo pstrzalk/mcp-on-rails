@@ -3,6 +3,12 @@ module <%= class_name.pluralize %>
   class UpdateTool < MCP::Tool
     tool_name "<%= singular_table_name %>-update-tool"
     description "Update a <%= class_name %> entity of a given ID"
+    annotations(
+      read_only_hint: false,
+      destructive_hint: false,
+      idempotent_hint: true,
+      open_world_hint: false
+    )
 
     input_schema(
       properties: {
