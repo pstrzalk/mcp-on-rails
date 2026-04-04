@@ -7,7 +7,7 @@ class OauthClientRegistrationController < ApplicationController
   before_action :ensure_json_request, only: :create
 
   # RFC 7591: Dynamic Client Registration Protocol
-  # Describes mechanisms for dynamically registering OAuth 2.0 clients with authorization servers
+  # Describes mechanisms for dynamically registering OAuth 2.1 clients with authorization servers
   def create
     application = Doorkeeper::Application.new(registration_params)
 

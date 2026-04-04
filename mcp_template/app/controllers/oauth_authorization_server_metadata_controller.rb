@@ -22,7 +22,7 @@ class OauthAuthorizationServerMetadataController < ApplicationController
     render json: {
       issuer: base_url,
 
-      # OAuth 2.0 endpoints provided by Doorkeeper
+      # OAuth 2.1 endpoints provided by Doorkeeper
       authorization_endpoint: "#{base_url}/oauth/authorize",
       token_endpoint: "#{base_url}/oauth/token",
       revocation_endpoint: "#{base_url}/oauth/revoke",

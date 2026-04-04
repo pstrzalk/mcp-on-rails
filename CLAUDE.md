@@ -6,20 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an **MCP on Rails template** - a Rails application template that seamlessly integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails applications using the [`mcp` gem](https://rubygems.org/gems/mcp).
 
+The template supports two modes — **plain MCP** (open endpoint) and **OAuth MCP** (Devise + Doorkeeper with OAuth 2.1, PKCE, dynamic client registration, and resource indicators). The mode is selected interactively during setup.
+
 The project consists of two main components:
 1. **`mcp`** - The Rails application template file
 2. **`mcp_template/`** - Directory containing template files copied to new Rails applications
 
 The `mcp` template bootstraps a new Rails app with MCP server capabilities. When run with `rails new myapp -m mcp`, it:
 
-1. Adds the `mcp` gem to the Gemfile
+1. Adds the `mcp` gem (and optionally `devise` + `doorkeeper`) to the Gemfile
 2. Copies template files from `mcp_template/` directory
 3. Creates an `McpController` that handles MCP protocol requests at `/mcp` endpoint (streamable HTTP transport)
 4. Sets up Rails generator hooks for automatic MCP tool generation during scaffolding
 5. Adds a `to_mcp_response` method to ActiveRecord models for consistent MCP formatting
 6. Configures Rails to ignore generators from autoloading
+7. Optionally sets up OAuth 2.1 with Devise authentication, Doorkeeper OAuth provider, PKCE enforcement, dynamic client registration (RFC 7591), authorization server metadata (RFC 8414), protected resource metadata (RFC 9728), and resource indicators (RFC 8707)
 
-When you scaffold new models (`rails generate scaffold Post title:string`), MCP tools are automatically generated alongside standard Rails files, providing AI assistants with structured access to CRUD operations.
+When you scaffold new models (`rails generate scaffold Post title:string`), MCP tools are automatically generated alongside standard Rails files (the generator prompts to select All, Some, or None), providing AI assistants with structured access to CRUD operations.
 
 ## How Rails generators work:
 Read contents of https://raw.githubusercontent.com/rails/rails/refs/heads/main/guides/source/generators.md to get context about Rails generators.
@@ -33,7 +36,7 @@ MCP Tools are Ruby classes that inherit from `MCP::Tool` and provide AI assistan
 - **Autoloading**: Tools are automatically loaded via `config/initializers/mcp.rb`
 - **Generation**: Use `rails generate mcp_tool ToolName field:type` to create new tools
 - **Response Format**: Tools return `MCP::Tool::Response` objects with text content
-- **Auto-generation**: Scaffold generates 5 CRUD tools per model (show, index, create, update, delete)
+- **Auto-generation**: Scaffold prompts to generate CRUD tools per model (All/Some/None): show, index, create, update, delete
 
 ### Generated Tool Types
 
@@ -80,6 +83,16 @@ end
 - **Boolean fields**: `type: "boolean"`
 - **References**: Automatically included in filtering and as required fields
 
+## MCP Prompts Architecture
+
+MCP Prompts are Ruby classes that inherit from `MCP::Prompt` and provide reusable prompt templates for AI assistants:
+
+- **Location**: `app/prompts/` directory
+- **Structure**: Each prompt defines `prompt_name`, `description`, `arguments`, and `template` method
+- **Autoloading**: Prompts are automatically loaded via `config/initializers/mcp.rb`
+- **Generation**: Use `rails generate mcp_prompt PromptName arg arg:required` to create new prompts
+- **Not auto-generated**: Unlike tools, prompts are only created explicitly via the generator
+
 ## Template Architecture
 
 The template uses Rails' generator hook system to extend the standard scaffold controller generator. This approach is:
@@ -123,9 +136,16 @@ rails generate mcp_tool WeatherCheck location:string temperature:integer
 rails generate mcp_tool EmailSender recipient:string subject:string body:text urgent:boolean
 ```
 
+### Custom MCP Prompts
+```bash
+# Prompt with required and optional arguments
+rails generate mcp_prompt hotel_finder location:required check_in_date:required adults price_max
+```
+
 ### MCP-Specific Commands
 ```bash
 rake mcp:tools          # List all registered MCP tools
+rake mcp:prompts        # List all registered MCP prompts
 rails server            # Start MCP server (streamable HTTP at /mcp)
 rails test              # Run test suite
 rails db:migrate        # Run database migrations
@@ -141,9 +161,15 @@ This repository contains:
   - `lib/generators/rails/scaffold_controller_generator.rb` - Scaffold extension with MCP hook
   - `lib/generators/rails/templates/` - MCP tool templates
   - `lib/generators/mcp_tool/` - Standalone MCP tool generator
+  - `lib/generators/mcp_prompt/` - Standalone MCP prompt generator
+  - `app/controllers/oauth_*.rb` - OAuth controllers (used only in OAuth mode)
+  - `app/models/oauth_*.rb` - OAuth model helpers (used only in OAuth mode)
+  - `config/initializers/doorkeeper.rb` - Doorkeeper OAuth config (used only in OAuth mode)
 
 After using the template, Rails apps will have:
 - `app/controllers/mcp_controller.rb` - MCP protocol endpoint handler (streamable HTTP)
 - `app/tools/` - MCP tool implementations (auto-generated during scaffolding)
-- `config/initializers/mcp.rb` - MCP configuration and tool autoloading
+- `app/prompts/` - MCP prompt implementations (created via generator)
+- `config/initializers/mcp.rb` - MCP configuration and tool/prompt autoloading
 - `app/models/application_record.rb` - Extended with `to_mcp_response` method
+- *(OAuth mode only)* Devise views, Doorkeeper config, OAuth controllers, and related migrations

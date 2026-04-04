@@ -1,12 +1,12 @@
 # MCP on Rails (with optional OAuth)
 
-A Rails application template that integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails. During setup, the template asks whether to add OAuth 2.0 protection using [Devise](https://github.com/heartcombo/devise) and [Doorkeeper](https://github.com/doorkeeper-gem/doorkeeper) — so one template supports both plain MCP and fully authenticated setups.
+A Rails application template that integrates the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol) with Ruby on Rails. During setup, the template asks whether to add OAuth 2.1 protection using [Devise](https://github.com/heartcombo/devise) and [Doorkeeper](https://github.com/doorkeeper-gem/doorkeeper) — so one template supports both plain MCP and fully authenticated setups.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/pstrzalk/mcp-on-rails.git
-rails new myapp -m mcp-on-rails-oauth/mcp
+rails new myapp -m mcp-on-rails/mcp
 cd myapp
 rails db:migrate
 rails server
@@ -15,7 +15,7 @@ rails server
 The template will prompt:
 
 ```
-Add Devise + Doorkeeper OAuth 2.0 authentication? (y/n)
+Add Devise + Doorkeeper OAuth 2.1 authentication? (y/n)
 ```
 
 Answer **n** for a plain MCP server or **y** for full OAuth protection.
@@ -49,7 +49,7 @@ Creates a Rails app with an open MCP server — no authentication required.
 ### Usage
 
 ```bash
-rails new myapp -m mcp-on-rails-oauth/mcp   # answer n
+rails new myapp -m mcp-on-rails/mcp   # answer n
 cd myapp && rails db:migrate
 
 rails generate scaffold Post title:string body:text
@@ -103,7 +103,7 @@ No authentication needed — the `/mcp` endpoint is open.
 
 ## OAuth MCP (answer "y")
 
-Creates a Rails app with an OAuth 2.0-protected MCP server, including PKCE, dynamic client registration, and resource indicator support — everything needed for MCP's OAuth authorization flow.
+Creates a Rails app with an OAuth 2.1-protected MCP server, including PKCE, dynamic client registration, and resource indicator support — everything needed for MCP's OAuth authorization flow.
 
 ### What you get
 
@@ -111,7 +111,7 @@ Everything from plain mode, plus:
 
 - **`devise` + `doorkeeper` gems** added to Gemfile
 - **Devise** user authentication (sign-up, sign-in, password reset)
-- **Doorkeeper** OAuth 2.0 provider with PKCE enforcement (S256)
+- **Doorkeeper** OAuth 2.1 provider with PKCE enforcement (S256)
 - **`McpController`** protected by `doorkeeper_authorize!` with token audience validation (RFC 8707)
 - **Dynamic client registration** at `POST /oauth/register` (RFC 7591)
 - **Protected resource metadata** at `GET /.well-known/oauth-protected-resource` (RFC 9728)
@@ -121,7 +121,7 @@ Everything from plain mode, plus:
 ### Usage
 
 ```bash
-rails new myapp -m mcp-on-rails-oauth/mcp   # answer y
+rails new myapp -m mcp-on-rails/mcp   # answer y
 cd myapp && rails db:migrate
 
 rails generate scaffold Post title:string body:text
@@ -147,7 +147,7 @@ The full authorization flow follows MCP's OAuth specification:
 
 | RFC | Description | Endpoint |
 |-----|-------------|----------|
-| OAuth 2.0 + PKCE | Authorization with Proof Key for Code Exchange (S256) | `/oauth/authorize`, `/oauth/token` |
+| OAuth 2.1 + PKCE | Authorization with Proof Key for Code Exchange (S256) | `/oauth/authorize`, `/oauth/token` |
 | RFC 7591 | Dynamic Client Registration | `POST /oauth/register` |
 | RFC 8414 | Authorization Server Metadata | `GET /.well-known/oauth-authorization-server` |
 | RFC 8707 | Resource Indicators | `resource` parameter in auth + token requests |

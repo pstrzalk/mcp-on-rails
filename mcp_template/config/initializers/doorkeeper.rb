@@ -14,9 +14,8 @@ Doorkeeper.configure do
     current_user || warden.authenticate!(scope: :user)
   end
 
-  # Require non-confidential clients to use PKCE when using an authorization code
-  # to obtain an access_token (disabled by default)
-  #
+  # Require all clients to use PKCE (S256) when using an authorization code
+  # to obtain an access token, as mandated by OAuth 2.1 and the MCP specification
   force_pkce
 
   # Hash token and application secrets in the database

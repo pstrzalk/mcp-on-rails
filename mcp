@@ -1,5 +1,5 @@
 # Rails application template to install MCP server (with optional OAuth)
-use_oauth = yes?("Add OAuth 2.0 authentication? (y/n)")
+use_oauth = yes?("Add Devise + Doorkeeper OAuth 2.1 authentication? (y/n)")
 
 if use_oauth
   run "bundle add mcp devise doorkeeper"
